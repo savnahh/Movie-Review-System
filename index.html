@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Review System</title>
+    <link rel="icon" href="favicon-32x32.png">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Movie Review System</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Movie Name</th>
+                    <th>Director Name</th>
+                    <th>Release Date</th>
+                    <th>Rating</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="movieTable">
+            </tbody>
+        </table>
+        <div class="input-container">
+            <input type="text" id="movieName" placeholder="Movie Name">
+            <input type="text" id="directorName" placeholder="Director Name">
+            <input type="number" id="rating" placeholder="Rating (1-5)" min="1" max="5">
+            <input type="date" id="releaseDate" placeholder="Release Date">
+        </div>
+        <div class="form-container">
+            <button id="addBtn">Add</button>
+            <button id="updateBtn">Update</button>
+        </div>
+    </div>
+    <script type="module">
+        //Firebase imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+        import {
+            Firestore,
+            getFirestore,
+            onSnapshot,
+            query,
+            collection,
+            orderBy,
+            addDoc,
+            deleteDoc,
+            doc,
+            updateDoc,
+            where,
+            getDocs
+        } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js"
+
+        //Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyB957LO6GzNvJrjNgfFruthZVggCV0lGbg",
+            authDomain: "task3-2330777.firebaseapp.com",
+            projectId: "task3-2330777",
+            storageBucket: "task3-2330777.appspot.com",
+            messagingSenderId: "272759112305",
+            appId: "1:272759112305:web:0ae67e089f7cfe17c291d0"
+        };
+
+        //Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        //Firestore query
+        const q = query(collection(db, "movies"), orderBy("movieName"));
+
+        //Snapshot listener
+        const data = onSnapshot(q, (snapshot) => {
+            let table = document.querySelector('#movieTable');
+            table.innerHTML = "";
+            let content = '';
+            snapshot.forEach((doc) => {
+                content += `<tr>
+                          <td class="${doc.id}">${doc.data().movieName}</td>
+                          <td class="${doc.id}director">${doc.data().directorName}</td>
+                          <td class="${doc.id}release">${doc.data().releaseDate}</td>
+                          <td class="${doc.id}rating">${doc.data().rating}</td>
+                          <td class="action-buttons">
+                              <button class="edit" data-id="${doc.id}">Edit</button>
+                              <button class="delete" data-id="${doc.id}">Delete</button>
+                          </td>
+                          </tr>`;
+            });
+            table.innerHTML += content;
+
+            //Event listeners for edit buttons
+            document.querySelectorAll('.edit').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    const selectedDoc = snapshot.docs.find(doc => doc.id === id);
+
+                    if (selectedDoc) {
+                        document.getElementById('movieName').value = selectedDoc.data().movieName;
+                        document.getElementById('directorName').value = selectedDoc.data().directorName;
+                        document.getElementById('releaseDate').value = selectedDoc.data().releaseDate;
+                        document.getElementById('rating').value = selectedDoc.data().rating;
+                        document.getElementById('updateBtn').setAttribute('data-id', id);
+                    }
+                });
+            });
+
+            //Event listeners for delete buttons
+            document.querySelectorAll('.delete').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    await deleteDoc(doc(db, 'movies', id));
+                });
+            }); 
+        });
+
+        // Add function
+        const addData = async () => {
+            let movieName = document.getElementById('movieName').value;
+            let directorName = document.getElementById('directorName').value;
+            let releaseDate = document.getElementById('releaseDate').value;
+            let rating = document.getElementById('rating').value;
+
+            if (!movieName || !directorName || !releaseDate || !rating) {
+                alert("Please fill all the fields!");
+                return;
+            }
+
+            if (rating < 1 || rating > 5) {
+                alert("Rating must be between 1 and 5!");
+                return;
+            }
+
+            const movieRef = collection(db, 'movies');
+            const movieQuery = query(movieRef, where("movieName", "==", movieName), where("directorName", "==", directorName));
+            const snapshot = await getDocs(movieQuery);
+            if (!snapshot.empty) {
+                alert("Movie already exists!");
+                return;
+            }
+
+            await addDoc(collection(db, 'movies'),
+                {
+                    'movieName': movieName,
+                    'directorName': directorName,
+                    'releaseDate': releaseDate,
+                    'rating': rating
+                }
+            );
+            document.getElementById('movieName').value = "";
+            document.getElementById('directorName').value = "";
+            document.getElementById('releaseDate').value = "";
+            document.getElementById('rating').value = "";
+        };
+
+        // Update function
+        const onUpdate = async () => {
+            let updatedMovieName = document.getElementById('movieName').value;
+            let updatedDirectorName = document.getElementById('directorName').value;
+            let updatedReleaseDate = document.getElementById('releaseDate').value;
+            let updatedRating = document.getElementById('rating').value;
+            let id = document.getElementById('updateBtn').getAttribute('data-id');
+
+            if (!id) {
+                alert("You must select a movie to be updated!");
+                return;
+            }
+            
+            if (!updatedMovieName || !updatedDirectorName || !updatedReleaseDate || !updatedRating) {
+                alert("Please fill all the fields!");
+                return;
+            }
+
+            if (updatedRating < 1 || updatedRating > 5) {
+                alert("Rating must be between 1 and 5!");
+                return;
+            }
+
+
+            await updateDoc(doc(db, 'movies', id), {
+                'movieName': updatedMovieName,
+                'directorName': updatedDirectorName,
+                'releaseDate': updatedReleaseDate,
+                'rating': updatedRating
+            });
+            document.getElementById('movieName').value = "";
+            document.getElementById('directorName').value = "";
+            document.getElementById('releaseDate').value = "";
+            document.getElementById('rating').value = "";
+            document.getElementById('updateBtn').removeAttribute('data-id');
+        };
+
+        // Add event listeners for buttons
+        document.getElementById("addBtn").addEventListener('click', addData);
+        document.getElementById("updateBtn").addEventListener('click', onUpdate);
+    </script>
+</body>
+</html>
